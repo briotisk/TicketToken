@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, Button } from 'react-native';
 import { ethers } from 'ethers';
-const ContractABI = require('../../build/contracts/SoftwareLicense.json');
+const ContractABI = require('../../build/contracts/TicketToken.json');
 const contractABI = ContractABI.abi;
 
 export default function App() {
@@ -9,9 +9,7 @@ export default function App() {
   const [isMetaMaskInstalled, setIsMetaMaskInstalled] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   
-  const contractAddress = "0xda2a1c35227d511ed7d3150b1a6758f0fca1f0aa";//colocar o endereço do contrato obtido no deploy
-  const licensePrice = ethers.parseEther("0.01");//colocar o preço da licença definido na hora do deploy
-  const decimals = 18;//colocar o número de decimais do token(18 é o padrão)
+  const contractAddress = "";//colocar o endereço do contrato obtido no deploy
 
   async function checkMetaMaskInstalled() {
 
