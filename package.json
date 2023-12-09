@@ -1,0 +1,41 @@
+{
+    "name": "ticket-token",
+    "version": "1.0.0",
+    "description": "Este projeto consiste em um sistema de tokenização de ingressos.",
+    "main": "truffle-config.js",
+    "directories": {
+      "test": "test"
+    },
+    "scripts": {
+      "test": "truffle test"
+    },
+    "repository": {
+      "type": "git",
+      "url": "git+https://github.com/briotisk/TicketToken.git"
+    },
+    "keywords": [
+      "blockchain",
+      "smart contracts",
+      "ethereum",
+      "ticket",
+      "token"
+    ],
+    "author": {
+        "name": "Gabriel Henrique Brioto",
+        "email": "gabriel_h_brioto@usp.br"
+    },
+    "license": "ISC",
+    "bugs": {
+      "url": "https://github.com/briotisk/TicketToken/issues"
+    },
+    "homepage": "https://github.com/briotisk/TicketToken#readme",
+    "dependencies": {
+      "@truffle/hdwallet-provider": "^2.1.15",
+      "dotenv": "^16.3.1",
+      "ethers": "^6.8.1",
+      "ganache-cli": "^6.12.2",
+      "js-sha256": "^0.10.1",
+      "readline-sync": "^1.4.10",
+      "truffle": "^5.11.5"
+    }
+  }
