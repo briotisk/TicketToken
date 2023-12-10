@@ -19,15 +19,15 @@ function isValidDateTime(input) {
 
 let inputReader = require('readline-sync');
 let ticketPrice = inputReader.question("Digite o preço do ingresso em ETH (use '.' como separador decimal): ");
+let totalTickets = inputReader.question("Digite o número de ingressos a serem disponibilizados: ");
 let eventDate = inputReader.question("Digite a data do evento (formato DD/MM/YYYY HH:mm): ");
 while(!isValidDateTime(eventDate)){
   eventDate = inputReader.question("Digite a data do evento (formato DD/MM/YYYY HH:mm): ");
 }
-let totalTicketsAvailable = inputReader.question("Digite o número de ingressos a serem disponibilizados: ");
 
-// Use o Moment.js para converter para timestamp
-const eventTimestamp = moment(eventDate, 'DD/MM/YYYY HH:mm').unix();
+// Usa o Moment.js para converter para timestamp
+let eventTimestamp = moment(eventDate, 'DD/MM/YYYY HH:mm').unix();
 
 module.exports = function(deployer, network) {
-  deployer.deploy(eventDate, totalTicketsAvailable, ethers.parseEther(ticketPrice, 18));
+  deployer.deploy(TicketToken, eventTimestamp, totalTickets, ethers.parseEther(ticketPrice, 18));
 }

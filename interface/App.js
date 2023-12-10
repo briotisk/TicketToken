@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, Button } from 'react-native';
 import { ethers } from 'ethers';
-const ContractABI = require('../../build/contracts/TicketToken.json');
+const ContractABI = require('../build/contracts/TicketToken.json');
 const contractABI = ContractABI.abi;
 
 export default function App() {
 
   const [isMetaMaskInstalled, setIsMetaMaskInstalled] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
   
-  const contractAddress = "";//colocar o endereço do contrato obtido no deploy
+  const contractAddress = "0xeEfB74577aB224585e45e61333f3545D9233C30f";//colocar o endereço do contrato obtido no deploy
 
   async function checkMetaMaskInstalled() {
 
@@ -36,7 +37,10 @@ export default function App() {
         // Cria um Signer a partir do MetaMask
         const provider = new ethers.BrowserProvider(window.ethereum, "any");
         const signer = provider.getSigner();
-  
+        
+        //cria uma instância do contrato
+        const contract = new ethers.Contract(contractAddress, contractABI, provider);
+
         // Tenta obter as contas do MetaMask
         const accounts = await provider.listAccounts();
   
@@ -46,6 +50,20 @@ export default function App() {
         });
   
         setIsConnected(true);
+
+        // Obtém o endereço da conta conectada
+        const connectedAccount = (await signer).getAddress();
+
+        // Obtém o endereço do owner do contrato
+        const owner = await contract.organizer();
+
+        // Verifica se a conta conectada é do organizador ou não
+        if((await connectedAccount).toString() == owner){
+          setIsOwner(true);
+        }else{
+          setIsOwner(false);
+        }
+
       } else {
         console.error('MetaMask não está instalado.');
         setIsConnected(false);
@@ -56,7 +74,7 @@ export default function App() {
       setIsConnected(false);
     }
   }
-
+/*
   async function purchaseLicense() {
 
     try {
@@ -119,7 +137,7 @@ export default function App() {
     }
 
   }
-
+*/
   useEffect(() => {
 
     async function checkMetaMask() {
