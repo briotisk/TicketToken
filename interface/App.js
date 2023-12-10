@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, Button } from 'react-native';
+import { StyleSheet, View, TextInput, Text, Button } from 'react-native';
 import { ethers } from 'ethers';
 const ContractABI = require('../build/contracts/TicketToken.json');
 const contractABI = ContractABI.abi;
@@ -9,6 +9,25 @@ export default function App() {
   const [isMetaMaskInstalled, setIsMetaMaskInstalled] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
+  const [readTicketID, setReadTicketID] = useState(false);
+  const [ticketPrice, setTicketPrice] = useState(null); 
+
+  const [texto, setTexto] = useState('');
+
+  const handleInputChange = (valor) => {
+    setTexto(valor);
+  };
+
+  const setReadTicketIDTrue = () => {
+    setReadTicketID(true);
+  };
+
+  const handleEnviar = () => {
+    setReadTicketID(false);
+    setTexto('');
+    redeemTicket(texto);
+  };
+
   
   const contractAddress = "0xeEfB74577aB224585e45e61333f3545D9233C30f";//colocar o endereço do contrato obtido no deploy
 
@@ -50,6 +69,10 @@ export default function App() {
         });
   
         setIsConnected(true);
+
+        const ticketPriceBigInt = await getTicketPrice();
+        const formattedTicketPrice = ethers.formatUnits(ticketPriceBigInt, 'ether');
+        setTicketPrice(formattedTicketPrice); 
 
         // Obtém o endereço da conta conectada
         const connectedAccount = (await signer).getAddress();
@@ -138,6 +161,134 @@ export default function App() {
 
   }
 */
+
+async function getTicketPrice() {
+
+  try {
+    const metamaskProvider = new ethers.BrowserProvider(window.ethereum, "any");
+    //const signer = await metamaskProvider.getSigner();
+    
+    // Crie uma instância do contrato usando o Signer da MetaMask
+    const contract = new ethers.Contract(contractAddress, contractABI, metamaskProvider);
+
+    // Obtém o valor da variável pública "ticketPrice"
+    const price = await contract.ticketPrice();
+
+    return price;
+
+  } catch (error) {
+
+    alert('Erro ao consultar o preço do ingresso. Tente recarregar a página.');
+
+  }
+
+}
+
+async function showTickets() {
+
+  try {
+
+    const metamaskProvider = new ethers.BrowserProvider(window.ethereum, "any");
+    const contract = new ethers.Contract(contractAddress, contractABI, metamaskProvider);
+    
+    //consultar blocos em intervalos de 100 blocos
+    const blockInterval = 100; 
+    const fromBlock = 10187728;  // Substitua pelo bloco inicial desejado
+    const toBlock = await metamaskProvider.getBlockNumber();;
+
+    let fromBlockAtual = fromBlock;
+    let toBlockAtual = fromBlockAtual+blockInterval;
+
+    while (fromBlockAtual <= toBlock) {
+
+      const TicketIssuedEvents = await contract.queryFilter(contract.filters.TicketIssued(), fromBlockAtual, toBlockAtual);
+
+      for (const event of TicketIssuedEvents) {
+
+        const ticketId = event.args.ticketId;
+        const to = event.args.to;
+
+        /**
+         * 
+         * Dar um jeito de exibir bonitinho
+         * 
+         */
+        console.log("ID do Ingresso:", ticketId);
+        console.log("Destinatário:", to);
+        console.log("\n");
+      }
+
+      fromBlockAtual += blockInterval;
+      toBlockAtual += blockInterval;
+    }
+  } catch (error) {
+    console.error('Erro ao buscar e ler eventos:', error);
+  }
+  
+}
+
+async function redeemTicket(ticketID) {
+
+  try {
+
+    const ticketIDInt = +ticketID;
+
+    const metamaskProvider = new ethers.BrowserProvider(window.ethereum, "any");
+    const signer = await metamaskProvider.getSigner();
+  
+    // Crie uma instância do contrato usando o Signer da MetaMask
+    const contract = new ethers.Contract(contractAddress, contractABI, signer);
+    const signerAddress = (await signer).getAddress();
+  
+    const tx = await contract.redeemTicket(ticketIDInt);
+    const receipt = await tx.wait();
+
+    if (receipt.status === 1) {
+      alert("Transação bem-sucedida: O ingresso foi resgatado com sucesso! Boa Festa!");
+    }
+  
+  } catch (error) {
+
+    if(error.message.substr(0, 18) ==  "execution reverted"){
+
+      alert('Erro ao enviar a transação: Parece que você já resgatou esse ingresso = )');
+
+    }
+    
+  }
+
+}
+
+async function purchaseTicket() {
+
+  try {
+    const metamaskProvider = new ethers.BrowserProvider(window.ethereum, "any");
+    const signer = await metamaskProvider.getSigner();
+  
+    // Crie uma instância do contrato usando o Signer da MetaMask
+    const contract = new ethers.Contract(contractAddress, contractABI, signer);
+    const signerAddress = (await signer).getAddress();
+
+    const ticketPriceBigInt = await getTicketPrice();
+
+    const tx = await contract.purchaseTicket({from: signerAddress, value: ticketPriceBigInt});
+    const receipt = await tx.wait();
+
+    if (receipt.status === 1) {
+      alert("Transação bem-sucedida: O ingresso foi adquirido com sucesso!");
+    }
+  
+  } catch (error) {
+
+    if(error.message.substr(0, 18) ==  "insufficient funds"){
+
+      alert('Erro ao enviar a transação: Parece que você não tem fundos suficientes = (');
+
+    }
+    
+  }
+
+}
   useEffect(() => {
 
     async function checkMetaMask() {
@@ -170,7 +321,8 @@ export default function App() {
 
       {isMetaMaskInstalled && !isConnected &&(
         <View style={styles.metaMaskView}>
-          <Text style={styles.metaMaskText}>Conecte-se para continuar!</Text>
+          <Text style={styles.metaMaskText}>Seja Bem-Vindo!</Text>
+          <Text style={styles.metaMaskText}>Conecte-se para continuar.</Text>
           <Button
             onPress={connect}
             title="Conectar"
@@ -187,31 +339,71 @@ export default function App() {
         </View>
       )}
 
-      {isConnected &&(
+      {isConnected && !readTicketID &&(
         <View style={styles.metaMaskText}>
           <Text style={styles.metaMaskText}>O que deseja fazer?</Text>
         </View>
       )}
 
-      {isConnected &&(
+      {isConnected && !isOwner && !readTicketID &&(
         <View style={styles.row}>
           <Button
-            onPress={purchaseLicense}
-            title="Comprar Licença"
+            onPress={purchaseTicket}
+            title="Comprar Ingresso"
             color="#8da8ff"
           />
           <View style={styles.horizontalMargin} />
           <Button
-            onPress={printLicense}
-            title="Imprimir Licença"
+            onPress={setReadTicketIDTrue}
+            title="Resgatar Ingresso"
+            color="#8da8ff"
+          />
+          <View style={styles.horizontalMargin} />
+          <Button
+            onPress={purchaseTicket}
+            title="Obter Reembolso"
+            color="#8da8ff"
+          />
+          <View style={styles.horizontalMargin} />
+          <Button
+            onPress={showTickets}
+            title="Ver Meus Ingressos"
             color="#8da8ff"
           />
         </View>
       )}
 
-      {isConnected &&(
+      {isConnected && readTicketID &&( 
+        <View>
+          <TextInput
+            placeholder="Digite o ID do ingresso"
+            value={texto}
+            onChangeText={handleInputChange}
+            style={{ borderBottomWidth: 1, marginBottom: 15, padding: 8,  color: '#fff'}}
+          />
+          <Button title="Enviar" onPress={handleEnviar} />
+        </View>
+      )}
+
+      {isConnected && !isOwner &&(
         <View style={styles.metaMaskText}>
-          <Text style={styles.metaMaskText}>Preço da licença: 0.02 ETH</Text>
+          <Text style={styles.metaMaskText}>Preço do ingresso: {ticketPrice !== null ? `${ticketPrice} ETH` : 'Carregando...'}</Text>
+        </View>
+      )}
+
+      {isConnected && isOwner &&(
+        <View style={styles.metaMaskText}>
+          <Button
+            onPress={purchaseTicket}
+            title="Transferir"
+            color="#8da8ff"
+          />
+          <View style={styles.horizontalMargin} />
+          <Button
+            onPress={showTickets}
+            title="Gerar Relatorio"
+            color="#8da8ff"
+          />
         </View>
       )}
 
@@ -234,6 +426,7 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   metaMaskText: {
+    textAlign: 'center',
     fontWeight: 'bold',
     color: '#fff',
   },
