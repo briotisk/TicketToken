@@ -9,6 +9,7 @@ contract TicketToken {
     uint256 public totalTicketsSold;
     uint256 public totalTicketsAvailable;
     uint256 public ticketPrice;
+    uint256 private ticketId;
 
     mapping (uint256 => address) public ticketOwners;
     mapping (uint256 => bool) public ticketRedeemed;
@@ -22,6 +23,11 @@ contract TicketToken {
         _;
     }
 
+    modifier eventNotPassed() {
+        require(block.timestamp < eventDate, "Event date has already passed");
+        _;
+    }
+
     constructor(uint256 _eventDate, uint256 _totalTickets, uint256 _ticketPrice) {
         organizer = msg.sender;
         eventDate = _eventDate;
@@ -29,40 +35,29 @@ contract TicketToken {
         ticketPrice = _ticketPrice;
     }
 
-    function issueTicket(uint256 _ticketId, address _to) external onlyOrganizer {
+    function purchaseTicket() external payable eventNotPassed {
         require(totalTicketsSold < totalTicketsAvailable, "All tickets have been issued");
-        require(ticketOwners[_ticketId] == address(0), "Ticket with this ID already issued");
-        require(block.timestamp < eventDate, "Event date has already passed");
-
-        ticketOwners[_ticketId] = _to;
-        totalTicketsSold++;
-        emit TicketIssued(_ticketId, _to, ticketPrice);
-    }
-
-    function purchaseTicket(uint256 _ticketId) external payable {
-        require(totalTicketsSold < totalTicketsAvailable, "All tickets have been issued");
-        require(ticketOwners[_ticketId] == address(0), "Ticket with this ID already issued");
-        require(block.timestamp < eventDate, "Event date has already passed");
         require(msg.value >= ticketPrice, "Insufficient funds sent");
 
         // Emitir o ingresso para o comprador
-        ticketOwners[_ticketId] = msg.sender;
+        ticketOwners[ticketId] = msg.sender;
         totalTicketsSold++;
 
         // Emitir o evento de compra do ingresso
-        emit TicketIssued(_ticketId, msg.sender, msg.value);
+        emit TicketIssued(ticketId, msg.sender, msg.value);
+
+        // Seleciona o próximo ID de ingresso
+        ticketId++;
     }
 
-    function redeemTicket(uint256 _ticketId) external {
+    function redeemTicket(uint256 _ticketId) external eventNotPassed {
         require(msg.sender == ticketOwners[_ticketId], "You are not the owner of this ticket");
         require(!ticketRedeemed[_ticketId], "This ticket has already been redeemed");
-
-        // Adicione lógica adicional para ações específicas do evento ao resgatar o ingresso
 
         // Marcar o ingresso como resgatado
         ticketRedeemed[_ticketId] = true;
 
-        // Transferir Ether para o organizador (ou outra conta designada)
+        // Transferir Ether para o organizador
         payable(organizer).transfer(ticketPrice);
 
         // Emitir o evento de resgate do ingresso
