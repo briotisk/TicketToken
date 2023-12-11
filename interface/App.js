@@ -5,15 +5,15 @@ const ContractABI = require('../build/contracts/TicketToken.json');
 const contractABI = ContractABI.abi;
 
 export default function App() {
-
   const [isMetaMaskInstalled, setIsMetaMaskInstalled] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [readTicketID, setReadTicketID] = useState(false);
+  const [showTickets_, setShowTickets] = useState(false);
   const [redeemTicket_, setRedeemTicket] = useState(false);
   const [refundUnusedTicket_, setRrefundUnusedTicket] = useState(false);
-  const [ticketPrice, setTicketPrice] = useState(null); 
-
+  const [ticketPrice, setTicketPrice] = useState(null);
   const [texto, setTexto] = useState('');
+  const [tickets, setTickets] = useState([]);
 
   const handleInputChange = (valor) => {
     setTexto(valor);
@@ -32,17 +32,64 @@ export default function App() {
   const handleEnviar = () => {
     setReadTicketID(false);
     setTexto('');
-    if(redeemTicket_){
+    if (redeemTicket_) {
       redeemTicket(texto);
-    }else if(refundUnusedTicket_){
-      refundUnusedTicket(texto)
+    } else if (refundUnusedTicket_) {
+      refundUnusedTicket(texto);
     }
-    
   };
 
-  
-  const contractAddress = "0xeEfB74577aB224585e45e61333f3545D9233C30f";//colocar o endereço do contrato obtido no deploy
+  const contractAddress = '0xeEfB74577aB224585e45e61333f3545D9233C30f';
 
+  async function showTickets() {
+
+    setShowTickets(true);
+
+    try {
+      const metamaskProvider = new ethers.BrowserProvider(window.ethereum, 'any');
+      const contract = new ethers.Contract(contractAddress, contractABI, metamaskProvider);
+      const signer = await metamaskProvider.getSigner();
+      const signerAddress = (await signer).getAddress();
+      const signerAddressStr = (await signerAddress).toString();
+
+      const blockInterval = 100;
+      const fromBlock = 10187728;
+      const toBlock = await metamaskProvider.getBlockNumber();
+
+      let fromBlockAtual = fromBlock;
+      let toBlockAtual = fromBlockAtual + blockInterval;
+
+      const fetchedTickets = [];
+
+      while (fromBlockAtual <= toBlock) {
+        const TicketIssuedEvents = await contract.queryFilter(
+          contract.filters.TicketIssued(),
+          fromBlockAtual,
+          toBlockAtual
+        );
+
+        for (const event of TicketIssuedEvents) {
+          const ticketId = event.args.ticketId;
+          const to = event.args.to;
+
+          if (to === signerAddressStr) {
+            fetchedTickets.push({ ticketId, to });
+            console.log("ID do Ingresso:", ticketId.toString());
+            console.log("Destinatário:", to);
+            console.log("\n");
+            
+          }
+        }
+
+        fromBlockAtual += blockInterval;
+        toBlockAtual += blockInterval;
+      }
+
+      setTickets(fetchedTickets);
+    } catch (error) {
+      console.error('Erro ao buscar e ler eventos:', error);
+    }
+  }
   async function checkMetaMaskInstalled() {
 
     // Verifica se a extensão ethereum está presente no window
@@ -165,55 +212,6 @@ async function refundUnusedTicket(ticketID) {
     }
 
   }
-}
-
-async function showTickets() {
-
-  try {
-
-    const metamaskProvider = new ethers.BrowserProvider(window.ethereum, "any");
-    const contract = new ethers.Contract(contractAddress, contractABI, metamaskProvider);
-    const signer = await metamaskProvider.getSigner();
-    const signerAddress = (await signer).getAddress();
-    const signerAddressStr = (await signerAddress).toString();
-    
-    //consultar blocos em intervalos de 100 blocos
-    const blockInterval = 100; 
-    const fromBlock = 10187728;  // Substitua pelo bloco inicial desejado
-    const toBlock = await metamaskProvider.getBlockNumber();;
-
-    let fromBlockAtual = fromBlock;
-    let toBlockAtual = fromBlockAtual+blockInterval;
-
-    while (fromBlockAtual <= toBlock) {
-
-      const TicketIssuedEvents = await contract.queryFilter(contract.filters.TicketIssued(), fromBlockAtual, toBlockAtual);
-
-      for (const event of TicketIssuedEvents) {
-
-        const ticketId = event.args.ticketId;
-        const to = event.args.to;
-
-        if (to === signerAddressStr){
-          /**
-           * 
-           * Dar um jeito de exibir bonitinho
-           * 
-           */
-          console.log("ID do Ingresso:", ticketId);
-          console.log("Destinatário:", to);
-          console.log("\n");
-        }
-        
-      }
-
-      fromBlockAtual += blockInterval;
-      toBlockAtual += blockInterval;
-    }
-  } catch (error) {
-    console.error('Erro ao buscar e ler eventos:', error);
-  }
-  
 }
 
 async function redeemTicket(ticketID) {
@@ -397,6 +395,33 @@ async function purchaseTicket() {
         </View>
       )}
 
+      {isConnected && readTicketID && (
+        <View>
+          <TextInput
+            placeholder="Digite o ID do ingresso"
+            value={texto}
+            onChangeText={handleInputChange}
+            style={{ borderBottomWidth: 1, marginBottom: 15, padding: 8, color: '#fff' }}
+          />
+          <Button title="Enviar" onPress={handleEnviar} />
+        </View>
+      )}
+
+      {isConnected && showTickets_ &&(
+        <View>
+          <Text style={styles.metaMaskText}>Ingressos:</Text>
+          <FlatList
+            data={tickets}
+            keyExtractor={(item, index) => index.toString()}
+            renderItem={({ item }) => (
+              <View style={styles.ticketItem}>
+                <Text>ID do Ingresso: {item.ticketId.toString()}</Text>
+              </View>
+            )}
+          />
+        </View>
+      )}
+
     </View>
   );
   
@@ -428,5 +453,10 @@ const styles = StyleSheet.create({
   },
   horizontalMargin: {
     marginHorizontal: 10,
+  },
+  ticketItem: {
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ccc',
   },
 });
