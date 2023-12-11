@@ -8,8 +8,9 @@ export default function App() {
 
   const [isMetaMaskInstalled, setIsMetaMaskInstalled] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
-  const [isOwner, setIsOwner] = useState(false);
   const [readTicketID, setReadTicketID] = useState(false);
+  const [redeemTicket_, setRedeemTicket] = useState(false);
+  const [refundUnusedTicket_, setRrefundUnusedTicket] = useState(false);
   const [ticketPrice, setTicketPrice] = useState(null); 
 
   const [texto, setTexto] = useState('');
@@ -18,14 +19,25 @@ export default function App() {
     setTexto(valor);
   };
 
-  const setReadTicketIDTrue = () => {
+  const handleRefundUnusedTicket = () => {
+    setRrefundUnusedTicket(true);
+    setReadTicketID(true);
+  };
+
+  const handleRedeemTicket = () => {
+    setRedeemTicket(true);
     setReadTicketID(true);
   };
 
   const handleEnviar = () => {
     setReadTicketID(false);
     setTexto('');
-    redeemTicket(texto);
+    if(redeemTicket_){
+      redeemTicket(texto);
+    }else if(refundUnusedTicket_){
+      refundUnusedTicket(texto)
+    }
+    
   };
 
   
@@ -74,19 +86,6 @@ export default function App() {
         const formattedTicketPrice = ethers.formatUnits(ticketPriceBigInt, 'ether');
         setTicketPrice(formattedTicketPrice); 
 
-        // Obtém o endereço da conta conectada
-        const connectedAccount = (await signer).getAddress();
-
-        // Obtém o endereço do owner do contrato
-        const owner = await contract.organizer();
-
-        // Verifica se a conta conectada é do organizador ou não
-        if((await connectedAccount).toString() == owner){
-          setIsOwner(true);
-        }else{
-          setIsOwner(false);
-        }
-
       } else {
         console.error('MetaMask não está instalado.');
         setIsConnected(false);
@@ -97,70 +96,6 @@ export default function App() {
       setIsConnected(false);
     }
   }
-/*
-  async function purchaseLicense() {
-
-    try {
-      const metamaskProvider = new ethers.BrowserProvider(window.ethereum, "any");
-      const signer = await metamaskProvider.getSigner();
-    
-      // Crie uma instância do contrato usando o Signer da MetaMask
-      const contract = new ethers.Contract(contractAddress, contractABI, signer);
-      const signerAddress = (await signer).getAddress();
-    
-      const tx = await contract.purchaseLicense({from: signerAddress, value: licensePrice});
-      const receipt = await tx.wait();
-
-      if (receipt.status === 1) {
-        alert("Transação bem-sucedida: A licença foi adquirida com sucesso!");
-      }
-    
-    } catch (error) {
-
-      if(error.message.substr(0, 18) ==  "insufficient funds"){
-
-        alert('Erro ao enviar a transação: Parece que você não tem fundos suficientes = (');
-
-      }else if(error.message.substr(0, 18) ==  "execution reverted"){
-
-        alert('Erro ao enviar a transação: Parece que você já possui a licença = )');
-
-      }
-      
-    }
-
-  }
-
-  async function printLicense() {
-
-    try {
-      const metamaskProvider = new ethers.BrowserProvider(window.ethereum, "any");
-      const signer = await metamaskProvider.getSigner();
-      
-      // Crie uma instância do contrato usando o Signer da MetaMask
-      const contract = new ethers.Contract(contractAddress, contractABI, signer);
-
-      // Chamar a função printSoftwareKey
-      const key = await contract.printSoftwareKey();
-
-      console.log("Chave de software:", key);
-      alert("Chave de software: " + key);
-    } catch (error) {
-
-      if(error.message.substr(0, 18) ==  "insufficient funds"){
-
-        alert('Erro ao enviar a transação: Parece que você não tem fundos suficientes = (');
-
-      }else if(error.message.substr(0, 18) ==  "execution reverted"){
-
-        alert('Erro ao enviar a transação: Você precisa ter comprado a licença antes = (');
-
-      }
-
-    }
-
-  }
-*/
 
 async function getTicketPrice() {
 
@@ -184,12 +119,63 @@ async function getTicketPrice() {
 
 }
 
+async function refundUnusedTicket(ticketID) {
+
+  setRrefundUnusedTicket(false);
+
+  try {
+
+    const ticketIDInt = +ticketID;
+
+    const metamaskProvider = new ethers.BrowserProvider(window.ethereum, "any");
+    const signer = await metamaskProvider.getSigner();
+  
+    // Crie uma instância do contrato usando o Signer da MetaMask
+    const contract = new ethers.Contract(contractAddress, contractABI, signer);
+    const signerAddress = (await signer).getAddress();
+  
+    const tx = await contract.refundUnusedTicket(ticketIDInt);
+    const receipt = await tx.wait();
+
+    if (receipt.status === 1) {
+      alert("Transação bem-sucedida: O ingresso foi resgatado com sucesso! Boa Festa!");
+    }
+  
+  } catch (error) {
+
+    if(error.message.indexOf("This ticket has already been redeemed") != -1 ){
+
+      alert('Erro ao enviar a transação: Parece que você já resgatou esse ingresso = )');
+      console.log(error.message);
+
+    }else if(error.message.indexOf("You are not the owner of this ticket") != -1){
+
+      alert('Erro ao enviar a transação: Parece que você não é o dono desse ingresso = (');
+      console.log(error.message);
+
+    }else if(error.message.indexOf("Event date has not passed yet") != -1){
+
+      alert('Erro ao enviar a transação: O reembolso só pode ser solicitado após a data do evento = )');
+      console.log(error.message);
+
+    }else{
+
+      alert('Falha ao enviar transação X (');
+
+    }
+
+  }
+}
+
 async function showTickets() {
 
   try {
 
     const metamaskProvider = new ethers.BrowserProvider(window.ethereum, "any");
     const contract = new ethers.Contract(contractAddress, contractABI, metamaskProvider);
+    const signer = await metamaskProvider.getSigner();
+    const signerAddress = (await signer).getAddress();
+    const signerAddressStr = (await signerAddress).toString();
     
     //consultar blocos em intervalos de 100 blocos
     const blockInterval = 100; 
@@ -208,14 +194,17 @@ async function showTickets() {
         const ticketId = event.args.ticketId;
         const to = event.args.to;
 
-        /**
-         * 
-         * Dar um jeito de exibir bonitinho
-         * 
-         */
-        console.log("ID do Ingresso:", ticketId);
-        console.log("Destinatário:", to);
-        console.log("\n");
+        if (to === (signerAddressStr){
+          /**
+           * 
+           * Dar um jeito de exibir bonitinho
+           * 
+           */
+          console.log("ID do Ingresso:", ticketId);
+          console.log("Destinatário:", to);
+          console.log("\n");
+        }
+        
       }
 
       fromBlockAtual += blockInterval;
@@ -228,6 +217,8 @@ async function showTickets() {
 }
 
 async function redeemTicket(ticketID) {
+
+  setRedeemTicket(false);
 
   try {
 
@@ -249,9 +240,19 @@ async function redeemTicket(ticketID) {
   
   } catch (error) {
 
-    if(error.message.substr(0, 18) ==  "execution reverted"){
+    if(error.message.indexOf("This ticket has already been redeemed") != -1 ){
 
       alert('Erro ao enviar a transação: Parece que você já resgatou esse ingresso = )');
+      console.log(error.message);
+
+    }else if(error.message.indexOf("All tickets have been issued") != -1){
+      
+      alert('Parece que os ingressos se esgotaram = (');
+      console.log(error.message);
+
+    }else{
+
+      alert('Falha ao enviar transação X (');
 
     }
     
@@ -280,9 +281,14 @@ async function purchaseTicket() {
   
   } catch (error) {
 
-    if(error.message.substr(0, 18) ==  "insufficient funds"){
+    if(error.message.indexOf("insufficient funds") != -1 ){
 
       alert('Erro ao enviar a transação: Parece que você não tem fundos suficientes = (');
+      console.log(error.message);
+
+    }else{
+
+      alert('Falha ao enviar transação X (');
 
     }
     
@@ -345,7 +351,7 @@ async function purchaseTicket() {
         </View>
       )}
 
-      {isConnected && !isOwner && !readTicketID &&(
+      {isConnected && !readTicketID &&(
         <View style={styles.row}>
           <Button
             onPress={purchaseTicket}
@@ -354,13 +360,13 @@ async function purchaseTicket() {
           />
           <View style={styles.horizontalMargin} />
           <Button
-            onPress={setReadTicketIDTrue}
+            onPress={handleRedeemTicket}
             title="Resgatar Ingresso"
             color="#8da8ff"
           />
           <View style={styles.horizontalMargin} />
           <Button
-            onPress={purchaseTicket}
+            onPress={handleRefundUnusedTicket}
             title="Obter Reembolso"
             color="#8da8ff"
           />
@@ -385,25 +391,9 @@ async function purchaseTicket() {
         </View>
       )}
 
-      {isConnected && !isOwner &&(
+      {isConnected &&(
         <View style={styles.metaMaskText}>
           <Text style={styles.metaMaskText}>Preço do ingresso: {ticketPrice !== null ? `${ticketPrice} ETH` : 'Carregando...'}</Text>
-        </View>
-      )}
-
-      {isConnected && isOwner &&(
-        <View style={styles.metaMaskText}>
-          <Button
-            onPress={purchaseTicket}
-            title="Transferir"
-            color="#8da8ff"
-          />
-          <View style={styles.horizontalMargin} />
-          <Button
-            onPress={showTickets}
-            title="Gerar Relatorio"
-            color="#8da8ff"
-          />
         </View>
       )}
 

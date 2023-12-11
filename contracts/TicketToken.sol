@@ -85,8 +85,4 @@ contract TicketToken {
         emit TicketRefunded(_ticketId, msg.sender, refundAmount);
     }
 
-    // Função para permitir que o organizador retire o saldo do contrato
-    function withdrawBalance() external onlyOrganizer {
-        payable(organizer).transfer(address(this).balance);
-    }
 }
