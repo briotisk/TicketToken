@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, TextInput, Text, Button } from 'react-native';
+import { StyleSheet, View, TextInput, Text, Button, FlatList } from 'react-native';
 import { ethers } from 'ethers';
 const ContractABI = require('../build/contracts/TicketToken.json');
 const contractABI = ContractABI.abi;
@@ -194,7 +194,7 @@ async function showTickets() {
         const ticketId = event.args.ticketId;
         const to = event.args.to;
 
-        if (to === (signerAddressStr){
+        if (to === signerAddressStr){
           /**
            * 
            * Dar um jeito de exibir bonitinho
